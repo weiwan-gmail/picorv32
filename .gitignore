@@ -4,6 +4,10 @@
 /firmware/firmware.elf
 /firmware/firmware.hex
 /firmware/firmware.map
+/firmware/hello.bin
+/firmware/hello.elf
+/firmware/hello.hex
+/firmware/hello.map
 /dhrystone/dhry.bin
 /dhrystone/dhry.elf
 /dhrystone/dhry.hex
@@ -30,6 +34,9 @@
 /testbench.vcd
 /testbench.trace
 /testbench_verilator*
+/obj_dir/
+*.vcd
+*.trace
 /check.smt2
 /check.vcd
 /synth.log

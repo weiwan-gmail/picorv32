@@ -1,0 +1,10 @@
+riscv64-unknown-elf-gcc -c -DHELLO_ONLY -mabi=ilp32 -march=rv32imc_zicsr -o firmware/start_hello.o firmware/start.S
+riscv64-unknown-elf-gcc -c -mabi=ilp32 -march=rv32ic_zicsr -Os --std=c99 -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic  -ffreestanding -nostdlib -o firmware/hello.o firmware/hello.c
+riscv64-unknown-elf-gcc -Os -mabi=ilp32 -march=rv32imc_zicsr -ffreestanding -nostdlib -o firmware/hello.elf \
+	-Wl,--build-id=none,-Bstatic,-T,firmware/sections.lds,-Map,firmware/hello.map,--strip-debug \
+	firmware/start_hello.o firmware/irq.o firmware/print.o firmware/hello.o -lgcc
+/usr/lib/gcc/riscv64-unknown-elf/13.2.0/../../../riscv64-unknown-elf/bin/ld: warning: firmware/hello.elf has a LOAD segment with RWX permissions
+chmod -x firmware/hello.elf
+riscv64-unknown-elf-objcopy -O binary firmware/hello.elf firmware/hello.bin
+chmod -x firmware/hello.bin
+python3 firmware/makehex.py firmware/hello.bin 32768 > firmware/hello.hex

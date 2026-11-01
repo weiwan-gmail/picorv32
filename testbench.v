@@ -72,9 +72,9 @@ module picorv32_wrapper #(
 	input resetn,
 	output trap,
 	output trace_valid,
-	output [35:0] trace_data
+	output [35:0] trace_data,
+	output tests_passed
 );
-	wire tests_passed;
 	reg [31:0] irq = 0;
 
 	reg [15:0] count_cycle = 0;
@@ -268,7 +268,11 @@ module picorv32_wrapper #(
 				$display("ERROR!");
 				if ($test$plusargs("noerror"))
 					$finish;
+`ifdef VERILATOR
+				$fatal(1, "ERROR!");
+`else
 				$stop;
+`endif
 			end
 		end
 	end

@@ -12,6 +12,13 @@
 #define ENABLE_MULTST
 #define ENABLE_STATS
 
+#ifdef HELLO_ONLY
+#  undef ENABLE_RVTST
+#  undef ENABLE_SIEVE
+#  undef ENABLE_MULTST
+#  undef ENABLE_STATS
+#endif
+
 #ifndef ENABLE_QREGS
 #  undef ENABLE_RVTST
 #endif

@@ -13,10 +13,41 @@ VVP = vvp$(ICARUS_SUFFIX)
 
 TEST_OBJS = $(addsuffix .o,$(basename $(wildcard tests/*.S)))
 FIRMWARE_OBJS = firmware/start.o firmware/irq.o firmware/print.o firmware/hello.o firmware/sieve.o firmware/multest.o firmware/stats.o
+HELLO_OBJS = firmware/start_hello.o firmware/irq.o firmware/print.o firmware/hello.o
 GCC_WARNS  = -Werror -Wall -Wextra -Wshadow -Wundef -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings
 GCC_WARNS += -Wredundant-decls -Wstrict-prototypes -Wmissing-prototypes -pedantic # -Wconversion
-TOOLCHAIN_PREFIX = $(RISCV_GNU_TOOLCHAIN_INSTALL_PREFIX)i/bin/riscv32-unknown-elf-
 COMPRESSED_ISA = C
+
+# TOOLCHAIN_PREFIX is the RISC-V GCC prefix, including the trailing dash.
+# Command-line / environment override wins (make TOOLCHAIN_PREFIX=riscv64-unknown-elf-).
+# Otherwise prefer the historic /opt/riscv32i layout, then PATH (Ubuntu's
+# gcc-riscv64-unknown-elf, xpack riscv-none-elf-gcc, ...).
+ifeq ($(origin TOOLCHAIN_PREFIX),undefined)
+  ifneq ($(wildcard $(RISCV_GNU_TOOLCHAIN_INSTALL_PREFIX)i/bin/riscv32-unknown-elf-gcc),)
+    TOOLCHAIN_PREFIX := $(RISCV_GNU_TOOLCHAIN_INSTALL_PREFIX)i/bin/riscv32-unknown-elf-
+  else ifneq ($(shell command -v riscv64-unknown-elf-gcc 2>/dev/null),)
+    TOOLCHAIN_PREFIX := riscv64-unknown-elf-
+  else ifneq ($(shell command -v riscv-none-elf-gcc 2>/dev/null),)
+    TOOLCHAIN_PREFIX := riscv-none-elf-
+  else ifneq ($(shell command -v riscv32-unknown-elf-gcc 2>/dev/null),)
+    TOOLCHAIN_PREFIX := riscv32-unknown-elf-
+  else ifneq ($(shell command -v riscv-none-embed-gcc 2>/dev/null),)
+    TOOLCHAIN_PREFIX := riscv-none-embed-
+  else
+    TOOLCHAIN_PREFIX := $(RISCV_GNU_TOOLCHAIN_INSTALL_PREFIX)i/bin/riscv32-unknown-elf-
+  endif
+endif
+
+# GCC 10+ split Zicsr out of I. firmware/stats.c uses rdcycle/rdinstret.
+RISCV_MARCH_BASE := rv32im$(subst C,c,$(COMPRESSED_ISA))
+RISCV_MARCH ?= $(shell \
+	gccbin="$(TOOLCHAIN_PREFIX)gcc"; \
+	if command -v "$$gccbin" >/dev/null 2>&1 || [ -x "$$gccbin" ]; then \
+	  if echo 'csrr x0, cycle' | "$$gccbin" -march=$(RISCV_MARCH_BASE)_zicsr -mabi=ilp32 -x assembler -c -o /dev/null - >/dev/null 2>&1; then \
+	    echo $(RISCV_MARCH_BASE)_zicsr; \
+	  else echo $(RISCV_MARCH_BASE); fi; \
+	else echo $(RISCV_MARCH_BASE); fi)
+RISCV_MARCH_I ?= $(shell echo $(RISCV_MARCH) | sed 's/^rv32im/rv32i/')
 
 # Add things like "export http_proxy=... https_proxy=..." here
 GIT_ENV = true
@@ -54,6 +85,14 @@ test_synth: testbench_synth.vvp firmware/firmware.hex
 test_verilator: testbench_verilator firmware/firmware.hex
 	./testbench_verilator
 
+# Small C "hello world" firmware: print, write the magic pass value, ebreak.
+# This is the documented learning demo (full firmware.hex also still works).
+test_hello: testbench.vvp firmware/hello.hex
+	$(VVP) -N $< +firmware=firmware/hello.hex
+
+test_verilator_hello: testbench_verilator firmware/hello.hex
+	./testbench_verilator +firmware=firmware/hello.hex
+
 testbench.vvp: testbench.v picorv32.v
 	$(IVERILOG) -o $@ $(subst C,-DCOMPRESSED_ISA,$(COMPRESSED_ISA)) $^
 	chmod -x $@
@@ -79,9 +118,10 @@ testbench_synth.vvp: testbench.v synth.v
 	chmod -x $@
 
 testbench_verilator: testbench.v picorv32.v testbench.cc
-	$(VERILATOR) --cc --exe -Wno-lint -trace --top-module picorv32_wrapper testbench.v picorv32.v testbench.cc \
+	$(VERILATOR) --cc --exe --build -j 0 --no-timing -Wno-lint -Wno-fatal --trace \
+			--top-module picorv32_wrapper testbench.v picorv32.v testbench.cc \
+			-CFLAGS "-std=c++14 -O2" \
 			$(subst C,-DCOMPRESSED_ISA,$(COMPRESSED_ISA)) --Mdir testbench_verilator_dir
-	$(MAKE) -C testbench_verilator_dir -f Vpicorv32_wrapper.mk
 	cp testbench_verilator_dir/Vpicorv32_wrapper testbench_verilator
 
 check: check-yices
@@ -107,20 +147,44 @@ firmware/firmware.bin: firmware/firmware.elf
 	chmod -x $@
 
 firmware/firmware.elf: $(FIRMWARE_OBJS) $(TEST_OBJS) firmware/sections.lds
-	$(TOOLCHAIN_PREFIX)gcc -Os -mabi=ilp32 -march=rv32im$(subst C,c,$(COMPRESSED_ISA)) -ffreestanding -nostdlib -o $@ \
+	$(TOOLCHAIN_PREFIX)gcc -Os -mabi=ilp32 -march=$(RISCV_MARCH) -ffreestanding -nostdlib -o $@ \
 		-Wl,--build-id=none,-Bstatic,-T,firmware/sections.lds,-Map,firmware/firmware.map,--strip-debug \
 		$(FIRMWARE_OBJS) $(TEST_OBJS) -lgcc
 	chmod -x $@
 
+firmware/hello.hex: firmware/hello.bin firmware/makehex.py
+	$(PYTHON) firmware/makehex.py $< 32768 > $@
+
+firmware/hello.bin: firmware/hello.elf
+	$(TOOLCHAIN_PREFIX)objcopy -O binary $< $@
+	chmod -x $@
+
+firmware/hello.elf: $(HELLO_OBJS) firmware/sections.lds
+	$(TOOLCHAIN_PREFIX)gcc -Os -mabi=ilp32 -march=$(RISCV_MARCH) -ffreestanding -nostdlib -o $@ \
+		-Wl,--build-id=none,-Bstatic,-T,firmware/sections.lds,-Map,firmware/hello.map,--strip-debug \
+		$(HELLO_OBJS) -lgcc
+	chmod -x $@
+
 firmware/start.o: firmware/start.S
-	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32im$(subst C,c,$(COMPRESSED_ISA)) -o $@ $<
+	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=$(RISCV_MARCH) -o $@ $<
+
+firmware/start_hello.o: firmware/start.S
+	$(TOOLCHAIN_PREFIX)gcc -c -DHELLO_ONLY -mabi=ilp32 -march=$(RISCV_MARCH) -o $@ $<
 
 firmware/%.o: firmware/%.c
-	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32i$(subst C,c,$(COMPRESSED_ISA)) -Os --std=c99 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $<
+	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=$(RISCV_MARCH_I) -Os --std=c99 $(GCC_WARNS) -ffreestanding -nostdlib -o $@ $<
 
 tests/%.o: tests/%.S tests/riscv_test.h tests/test_macros.h
-	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=rv32im -o $@ -DTEST_FUNC_NAME=$(notdir $(basename $<)) \
+	$(TOOLCHAIN_PREFIX)gcc -c -mabi=ilp32 -march=$(RISCV_MARCH_BASE) -o $@ -DTEST_FUNC_NAME=$(notdir $(basename $<)) \
 		-DTEST_FUNC_TXT='"$(notdir $(basename $<))"' -DTEST_FUNC_RET=$(notdir $(basename $<))_ret $<
+
+toolchain-info:
+	@echo "TOOLCHAIN_PREFIX=$(TOOLCHAIN_PREFIX)"
+	@echo "RISCV_MARCH=$(RISCV_MARCH)"
+	@echo "RISCV_MARCH_I=$(RISCV_MARCH_I)"
+	@command -v $(TOOLCHAIN_PREFIX)gcc >/dev/null && $(TOOLCHAIN_PREFIX)gcc --version | head -n 1 || echo "gcc not found"
+	@command -v $(VERILATOR) >/dev/null && $(VERILATOR) --version || echo "verilator not found"
+	@command -v $(IVERILOG) >/dev/null && $(IVERILOG) -V 2>&1 | head -n 1 || echo "iverilog not found"
 
 download-tools:
 	sudo bash -c 'set -ex; mkdir -p /var/cache/distfiles; $(GIT_ENV); \
@@ -177,8 +241,11 @@ clean:
 		riscv-gnu-toolchain-riscv32im riscv-gnu-toolchain-riscv32imc
 	rm -vrf $(FIRMWARE_OBJS) $(TEST_OBJS) check.smt2 check.vcd synth.v synth.log \
 		firmware/firmware.elf firmware/firmware.bin firmware/firmware.hex firmware/firmware.map \
+		firmware/hello.elf firmware/hello.bin firmware/hello.hex firmware/hello.map \
+		firmware/start_hello.o \
 		testbench.vvp testbench_sp.vvp testbench_synth.vvp testbench_ez.vvp \
 		testbench_rvf.vvp testbench_wb.vvp testbench.vcd testbench.trace \
 		testbench_verilator testbench_verilator_dir
 
-.PHONY: test test_vcd test_sp test_axi test_wb test_wb_vcd test_ez test_ez_vcd test_synth download-tools build-tools toc clean
+.PHONY: test test_vcd test_sp test_axi test_wb test_wb_vcd test_ez test_ez_vcd test_synth \
+	test_verilator test_hello test_verilator_hello toolchain-info download-tools build-tools toc clean
