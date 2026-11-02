@@ -7,12 +7,27 @@
 # - include(CheckCXXCompilerFlag) before verilate().
 # - On MSVC, strip GCC-only -fcoroutines* flags Verilator may inject.
 # - Wire the existing repo-root TB (testbench.v / picorv32.v / testbench.cc).
-#   No RTL copies. Firmware hex is still built by the original Makefile.
+#   No RTL copies. Firmware hex is still built by the original Makefile when
+#   PICO_REBUILD_FIRMWARE=ON (Linux default). The Verilator cmake path itself
+#   uses --make cmake/json, not GNU make. Windows MSVC defaults to prebuilt hex.
 
 include_guard(GLOBAL)
 
 set(PICO_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 get_filename_component(PICO_REPO_ROOT "${PICO_CMAKE_DIR}/.." ABSOLUTE)
+
+# Firmware hex is a runtime input ($readmemh), not part of verilate().
+# Linux: rebuild via the original Makefile. Windows MSVC: do not require GNU
+# make at configure — copy firmware/*.hex from Linux, or opt in with
+# -DPICO_REBUILD_FIRMWARE=ON once MSYS2 make + RISC-V GCC + bash exist.
+if(WIN32)
+  set(_PICO_REBUILD_FIRMWARE_DEFAULT OFF)
+else()
+  set(_PICO_REBUILD_FIRMWARE_DEFAULT ON)
+endif()
+option(PICO_REBUILD_FIRMWARE
+  "Rebuild firmware/*.hex via the repo Makefile (GNU make + RISC-V GCC + bash)"
+  ${_PICO_REBUILD_FIRMWARE_DEFAULT})
 
 # MSYS2 names a Perl script share/verilator/bin/verilator_bin.exe. withlimon
 # and mingw64/bin ship a real PE (MZ). Only the PE may be executed on Windows.
@@ -206,13 +221,58 @@ function(pico_strip_msvc_gcc_flags target)
   endforeach()
 endfunction()
 
+function(pico_msvc_host_defs target)
+  if(NOT MSVC)
+    return()
+  endif()
+  # fopen in testbench.cc; NOMINMAX so Verilator min/max templates compile.
+  target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
+endfunction()
+
+# GNU make is optional for the Verilator cmake path. Search PATH, then well-known
+# MSYS2 prefixes (PC2023 has make at C:\msys64\usr\bin\make.exe, not on PATH).
+function(pico_find_gnu_make)
+  if(PICO_GNU_MAKE AND EXISTS "${PICO_GNU_MAKE}")
+    return()
+  endif()
+  if(PICO_GNU_MAKE AND NOT EXISTS "${PICO_GNU_MAKE}")
+    unset(PICO_GNU_MAKE CACHE)
+  endif()
+  set(_hints "")
+  if(WIN32)
+    set(_roots "C:/msys64" "D:/msys64" "C:/tools/msys64")
+    if(DEFINED ENV{MSYS2_ROOT} AND NOT "$ENV{MSYS2_ROOT}" STREQUAL "")
+      list(INSERT _roots 0 "$ENV{MSYS2_ROOT}")
+    endif()
+    foreach(_r IN LISTS _roots)
+      list(APPEND _hints
+        "${_r}/usr/bin"
+        "${_r}/mingw64/bin"
+        "${_r}/ucrt64/bin"
+        "${_r}/clang64/bin")
+    endforeach()
+  endif()
+  find_program(PICO_GNU_MAKE NAMES gmake make mingw32-make HINTS ${_hints}
+    DOC "GNU make for optional firmware/*.hex rebuild")
+endfunction()
+
 function(pico_add_firmware_hex name makefile_target hex_path)
-  add_custom_target(${name}
-    COMMAND "${PICO_GNU_MAKE}" ${makefile_target}
-    WORKING_DIRECTORY "${PICO_REPO_ROOT}"
-    BYPRODUCTS "${hex_path}"
-    COMMENT "Build ${makefile_target} via existing Makefile"
-    VERBATIM)
+  if(PICO_REBUILD_FIRMWARE)
+    add_custom_target(${name}
+      COMMAND "${PICO_GNU_MAKE}" ${makefile_target}
+      WORKING_DIRECTORY "${PICO_REPO_ROOT}"
+      BYPRODUCTS "${hex_path}"
+      COMMENT "Build ${makefile_target} via existing Makefile"
+      VERBATIM)
+  else()
+    add_custom_target(${name}
+      COMMAND "${CMAKE_COMMAND}"
+              "-DHEX_PATH=${hex_path}"
+              -P "${PICO_CMAKE_DIR}/RequireFirmwareHex.cmake"
+      WORKING_DIRECTORY "${PICO_REPO_ROOT}"
+      COMMENT "Require prebuilt ${makefile_target} (no Makefile rebuild)"
+      VERBATIM)
+  endif()
 endfunction()
 
 function(pico_sim_setup)
@@ -225,13 +285,29 @@ function(pico_sim_setup)
   pico_find_verilator()
   include(CheckCXXCompilerFlag)
 
-  find_program(PICO_GNU_MAKE NAMES gmake make mingw32-make)
-  if(NOT PICO_GNU_MAKE)
-    message(FATAL_ERROR
-      "GNU make not found. Firmware hex is still built by the repo Makefile "
-      "(make firmware/hello.hex). Install make, or pass -DPICO_GNU_MAKE=...")
+  pico_find_gnu_make()
+  if(PICO_REBUILD_FIRMWARE)
+    if(NOT PICO_GNU_MAKE)
+      message(FATAL_ERROR
+        "PICO_REBUILD_FIRMWARE=ON but GNU make was not found.\n"
+        "The Verilator cmake path does not need make (--make cmake/json).\n"
+        "Install make, pass -DPICO_GNU_MAKE=..., or reconfigure with "
+        "-DPICO_REBUILD_FIRMWARE=OFF and copy firmware/*.hex from Linux.\n"
+        "Windows: CMake also searches C:\\msys64\\usr\\bin\\make.exe and "
+        "mingw32-make under MSYS2 prefixes.")
+    endif()
+    message(STATUS "PicoSim: GNU make=${PICO_GNU_MAKE} (firmware rebuild ON)")
+  else()
+    if(PICO_GNU_MAKE)
+      message(STATUS
+        "PicoSim: GNU make=${PICO_GNU_MAKE} (firmware rebuild OFF; "
+        "prebuilt firmware/*.hex)")
+    else()
+      message(STATUS
+        "PicoSim: GNU make not found; Verilator cmake path does not need it. "
+        "Using prebuilt firmware/*.hex (copy from Linux if missing).")
+    endif()
   endif()
-  message(STATUS "PicoSim: GNU make=${PICO_GNU_MAKE}")
 
   set(_tb "${PICO_REPO_ROOT}/testbench.cc")
   set(_v_tb "${PICO_REPO_ROOT}/testbench.v")
@@ -249,6 +325,7 @@ function(pico_sim_setup)
     "${_tb}"
     "${PICO_CMAKE_DIR}/sc_time_stamp.cpp")
   target_compile_features(sim_picorv32 PRIVATE cxx_std_17)
+  pico_msvc_host_defs(sim_picorv32)
 
   include(CheckCXXCompilerFlag)
   verilate(sim_picorv32
@@ -263,6 +340,10 @@ function(pico_sim_setup)
 
   set(_hello_hex "${PICO_REPO_ROOT}/firmware/hello.hex")
   set(_fw_hex "${PICO_REPO_ROOT}/firmware/firmware.hex")
+  # Relative plusarg: picorv32_wrapper stores the path in reg [1023:0]
+  # (128 bytes). Absolute Windows paths can overflow that.
+  set(_hello_plus "firmware/hello.hex")
+  set(_fw_plus "firmware/firmware.hex")
   pico_add_firmware_hex(firmware_hello firmware/hello.hex "${_hello_hex}")
   pico_add_firmware_hex(firmware_full firmware/firmware.hex "${_fw_hex}")
 
@@ -270,7 +351,7 @@ function(pico_sim_setup)
   add_custom_target(sim
     DEPENDS sim_picorv32 firmware_hello
     COMMAND "$<TARGET_FILE:sim_picorv32>"
-            "+firmware=${_hello_hex}"
+            "+firmware=${_hello_plus}"
     WORKING_DIRECTORY "${PICO_REPO_ROOT}"
     COMMENT "Verilator co-sim: C hello firmware (ALL TESTS PASSED.)"
     VERBATIM)
@@ -278,20 +359,20 @@ function(pico_sim_setup)
   add_custom_target(sim-firmware
     DEPENDS sim_picorv32 firmware_full
     COMMAND "$<TARGET_FILE:sim_picorv32>"
-            "+firmware=${_fw_hex}"
+            "+firmware=${_fw_plus}"
     WORKING_DIRECTORY "${PICO_REPO_ROOT}"
     COMMENT "Verilator co-sim: full firmware.hex (ISA + C)"
     VERBATIM)
 
   add_test(NAME sim_hello
-    COMMAND "$<TARGET_FILE:sim_picorv32>" "+firmware=${_hello_hex}"
+    COMMAND "$<TARGET_FILE:sim_picorv32>" "+firmware=${_hello_plus}"
     WORKING_DIRECTORY "${PICO_REPO_ROOT}")
   set_tests_properties(sim_hello PROPERTIES
     TIMEOUT 60
     PASS_REGULAR_EXPRESSION "ALL TESTS PASSED")
 
   add_test(NAME sim_firmware
-    COMMAND "$<TARGET_FILE:sim_picorv32>" "+firmware=${_fw_hex}"
+    COMMAND "$<TARGET_FILE:sim_picorv32>" "+firmware=${_fw_plus}"
     WORKING_DIRECTORY "${PICO_REPO_ROOT}")
   set_tests_properties(sim_firmware PROPERTIES
     TIMEOUT 300

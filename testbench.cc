@@ -2,6 +2,25 @@
 // Clock/reset live here because the Verilog testbench module is
 // wrapped in `ifndef VERILATOR`. Firmware is still loaded from
 // firmware/*.hex via $readmemh in the wrapper.
+//
+// Host C++ is built with g++ (Linux) or MSVC (Windows Visual Studio).
+// Prefer preprocessor guards over duplicated files.
+
+#if defined(_MSC_VER)
+#  ifndef _CRT_SECURE_NO_WARNINGS
+#    define _CRT_SECURE_NO_WARNINGS
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <BaseTsd.h>
+#  ifndef _SSIZE_T_DEFINED
+typedef SSIZE_T ssize_t;
+#    define _SSIZE_T_DEFINED
+#  endif
+#else
+#  include <unistd.h>
+#endif
 
 #include <cstdio>
 #include <cstdlib>
@@ -60,8 +79,16 @@ int main(int argc, char **argv)
 		top->eval();
 		if (tfp)
 			tfp->dump(t);
-		if (trace_fd && top->clk && top->trace_valid)
+		if (trace_fd && top->clk && top->trace_valid) {
+			// trace_data is 36 bits. unsigned long is 64-bit on LP64 Linux
+			// and 32-bit on LLP64 MSVC, so print via unsigned long long.
+#if defined(_MSC_VER)
+			fprintf(trace_fd, "%9.9llx\n",
+				(unsigned long long)top->trace_data);
+#else
 			fprintf(trace_fd, "%9.9lx\n", (unsigned long)top->trace_data);
+#endif
+		}
 		if (top->clk) {
 			cycles++;
 			if (cycles > max_cycles) {

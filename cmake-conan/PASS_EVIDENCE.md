@@ -10,7 +10,7 @@ Recorded **2026-11-02** on this Cloud Agent Linux VM (`cursor`, Ubuntu, x86_64).
 | Conan | **2.34.0** (`pip install --user conan`) |
 | RISC-V GCC | `riscv64-unknown-elf-gcc` 13.2.0 |
 
-Windows (Conan 2.34 + withlimon `verilator_bin.exe`) is a **follow-up** — [`../cmake-system/WINDOWS.md`](../cmake-system/WINDOWS.md).
+Windows (Conan 2.34 + withlimon `verilator_bin.exe` + MSVC) is **code-ready** — [`../cmake-system/WINDOWS.md`](../cmake-system/WINDOWS.md). Same no-make / copy-hex rules as cmake-system. PC2023 `.\build_sim.ps1` re-proof is a worker follow-up.
 
 ## Configure
 
@@ -30,6 +30,7 @@ Install finished successfully
 -- PicoSim: Conan package folder /home/ubuntu/.conan2/p/b/veril.../p
 -- PicoSim: VERILATOR_BIN=.../p/bin/verilator_bin
 -- PicoSim: VERILATOR_ROOT=.../p
+-- PicoSim: GNU make=/usr/bin/gmake (firmware rebuild ON)
 -- Executing Verilator...
 -- Configuring done (2.5s)
 ```

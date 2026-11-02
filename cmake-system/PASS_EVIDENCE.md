@@ -10,7 +10,7 @@ Recorded **2026-11-02** on this Cloud Agent Linux VM (`cursor`, Ubuntu, x86_64).
 | RISC-V GCC | `riscv64-unknown-elf-gcc` 13.2.0 |
 | Conan | not used in this tree |
 
-Windows (withlimon `verilator_bin.exe`) is a **follow-up** — [`WINDOWS.md`](WINDOWS.md).
+Windows MSVC (withlimon `verilator_bin.exe`, Visual Studio generator) is **code-ready** — [`WINDOWS.md`](WINDOWS.md). GNU make is no longer a configure-time hard dependency (`PICO_REBUILD_FIRMWARE` defaults OFF on WIN32; CMake also searches `C:\msys64\usr\bin\make.exe`). PC2023 still needs: copy `firmware/*.hex` from Linux (or RISC-V GCC + bash + make), then `powershell -File .\build_sim.ps1`.
 
 ## Make still green
 
@@ -19,7 +19,7 @@ make test_verilator_hello
 # hello world / DONE / ALL TESTS PASSED. / verilator_exit=0 / cycles=35845
 ```
 
-## cmake-system
+## cmake-system (default: rebuild hex via Makefile)
 
 ```bash
 cmake -S cmake-system -B build-system -DCMAKE_BUILD_TYPE=Release
@@ -33,10 +33,10 @@ Configure:
 -- PreferUnixGcc: CMAKE_CXX_COMPILER=/usr/bin/g++
 -- PicoSim: VERILATOR_BIN=/bin/verilator_bin
 -- PicoSim: VERILATOR_ROOT=/usr/share/verilator
--- PicoSim: GNU make=/usr/bin/gmake
+-- PicoSim: GNU make=/usr/bin/gmake (firmware rebuild ON)
 -- Executing Verilator...
 -- PicoSim: sim_picorv32  (testbench.cc + testbench.v + picorv32.v)
--- Configuring done (1.8s)
+-- Configuring done (1.6s)
 ```
 
 `--target sim` (existing `testbench.cc` + `firmware/hello.hex` via Makefile):
@@ -62,3 +62,19 @@ verilator_exit=0 tests_passed=1 cycles=35845
 ```
 
 `sim_firmware` stdout includes ISA `..OK` lines, sieve primes, mul/div OK, CPI, then `ALL TESTS PASSED.` / `verilator_exit=0` / `cycles=477300`.
+
+## Prebuilt-hex path (Windows MSVC default)
+
+After hex exists, configure without Makefile rebuild (same as WIN32 default):
+
+```bash
+cmake -S cmake-system -B build-system-nomake -DCMAKE_BUILD_TYPE=Release -DPICO_REBUILD_FIRMWARE=OFF
+cmake --build build-system-nomake --target sim
+ctest --test-dir build-system-nomake --output-on-failure
+```
+
+```
+-- PicoSim: GNU make=/usr/bin/gmake (firmware rebuild OFF; prebuilt firmware/*.hex)
+```
+
+`--target sim` and `ctest` both PASS (`sim_hello` + `sim_firmware`, same `ALL TESTS PASSED.` / cycles as above).
