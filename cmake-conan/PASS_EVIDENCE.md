@@ -10,7 +10,7 @@ Recorded **2026-11-02** on this Cloud Agent Linux VM (`cursor`, Ubuntu, x86_64).
 | Conan | **2.34.0** (`pip install --user conan`) |
 | RISC-V GCC | `riscv64-unknown-elf-gcc` 13.2.0 |
 
-Windows (Conan 2.34 + withlimon `verilator_bin.exe` + MSVC) is **code-ready** — [`../cmake-system/WINDOWS.md`](../cmake-system/WINDOWS.md). Same no-make / copy-hex rules as cmake-system. PC2023 `.\build_sim.ps1` re-proof is a worker follow-up.
+Windows (Conan 2.34 + withlimon `verilator_bin.exe` + MSVC) uses the same committed `firmware/*.hex` as cmake-system (`PICO_REBUILD_FIRMWARE=OFF`). [`../cmake-system/WINDOWS.md`](../cmake-system/WINDOWS.md).
 
 ## Configure
 

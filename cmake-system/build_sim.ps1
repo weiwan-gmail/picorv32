@@ -6,9 +6,9 @@
 #   .\build_sim.ps1
 #
 # Conan is NOT used here (see ../cmake-conan/build_sim.ps1).
-# Firmware hex: copy firmware/*.hex from Linux, or rebuild with MSYS2 make
-# + RISC-V GCC (opt-in -DPICO_REBUILD_FIRMWARE=ON). GNU make is NOT required
-# for the Verilator cmake path.
+# Firmware hex: committed firmware/*.hex (PICO_REBUILD_FIRMWARE=OFF default
+# on Windows). Optional rebuild: MSYS2 make + RISC-V GCC
+# (-DPICO_REBUILD_FIRMWARE=ON). GNU make is NOT required for Verilator cmake.
 
 #Requires -Version 5.1
 [CmdletBinding()]
@@ -101,7 +101,7 @@ if ($make) {
     $env:PATH = "$(Split-Path -Parent $make);$env:PATH"
 } else {
     Write-Host "GNU make not on PATH; Verilator cmake path does not need it."
-    Write-Host "  Firmware: copy firmware/*.hex from Linux, or install MSYS2 make."
+    Write-Host "  Firmware: using committed firmware/*.hex (PICO_REBUILD_FIRMWARE=OFF)."
 }
 
 $repoRoot = Split-Path -Parent $Here

@@ -2,12 +2,12 @@
 /firmware/*.o
 /firmware/firmware.bin
 /firmware/firmware.elf
-/firmware/firmware.hex
 /firmware/firmware.map
 /firmware/hello.bin
 /firmware/hello.elf
-/firmware/hello.hex
 /firmware/hello.map
+# hello.hex / firmware.hex are committed prebuilts so Windows MSVC
+# (PICO_REBUILD_FIRMWARE=OFF) can run without RISC-V GCC or GNU make.
 /dhrystone/dhry.bin
 /dhrystone/dhry.elf
 /dhrystone/dhry.hex

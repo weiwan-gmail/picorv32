@@ -18,7 +18,7 @@ get_filename_component(PICO_REPO_ROOT "${PICO_CMAKE_DIR}/.." ABSOLUTE)
 
 # Firmware hex is a runtime input ($readmemh), not part of verilate().
 # Linux: rebuild via the original Makefile. Windows MSVC: do not require GNU
-# make at configure — copy firmware/*.hex from Linux, or opt in with
+# make at configure — use committed firmware/*.hex, or opt in with
 # -DPICO_REBUILD_FIRMWARE=ON once MSYS2 make + RISC-V GCC + bash exist.
 if(WIN32)
   set(_PICO_REBUILD_FIRMWARE_DEFAULT OFF)
@@ -292,7 +292,7 @@ function(pico_sim_setup)
         "PICO_REBUILD_FIRMWARE=ON but GNU make was not found.\n"
         "The Verilator cmake path does not need make (--make cmake/json).\n"
         "Install make, pass -DPICO_GNU_MAKE=..., or reconfigure with "
-        "-DPICO_REBUILD_FIRMWARE=OFF and copy firmware/*.hex from Linux.\n"
+        "-DPICO_REBUILD_FIRMWARE=OFF and use committed firmware/*.hex.\n"
         "Windows: CMake also searches C:\\msys64\\usr\\bin\\make.exe and "
         "mingw32-make under MSYS2 prefixes.")
     endif()
@@ -305,7 +305,7 @@ function(pico_sim_setup)
     else()
       message(STATUS
         "PicoSim: GNU make not found; Verilator cmake path does not need it. "
-        "Using prebuilt firmware/*.hex (copy from Linux if missing).")
+        "Using committed firmware/*.hex (rebuild with the Makefile if stale).")
     endif()
   endif()
 

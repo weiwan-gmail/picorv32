@@ -11,7 +11,7 @@ Linux `cmake-system` / `cmake-conan` are proven in `PASS_EVIDENCE.md`. This file
 | Host C++ | **MSVC** via the Visual Studio generator (PC2023: VS 2022). `#if defined(_MSC_VER)` in `testbench.cc`. |
 | Conan | **2.34** (`cmake-conan` tree only) |
 | GNU make | **Not required** for configure / Verilator / `sim` / `ctest`. CMake uses `--make cmake` or `--make json`. |
-| Firmware | `$readmemh` input. Copy `firmware/hello.hex` and `firmware/firmware.hex` from Linux, **or** opt in to Makefile rebuild (below). |
+| Firmware | `$readmemh` input. **Committed** `firmware/hello.hex` and `firmware/firmware.hex` (Linux prebuilts). Optional Makefile rebuild below. |
 
 PC2023 develop tip previously failed at configure with `GNU make not found` from `PicoSim.cmake`. That hard dependency is gone. Verilator PE on this worker: `C:\msys64\mingw64\bin\verilator_bin.exe`.
 
@@ -47,14 +47,7 @@ If the PE lives under MSYS2, `build_sim.ps1` finds `C:\msys64\mingw64\bin\verila
 
 ## Firmware hex (no RISC-V GCC on the Windows box)
 
-From a Linux tree that already built hex:
-
-```bat
-copy /Y firmware\hello.hex <windows-checkout>\firmware\
-copy /Y firmware\firmware.hex <windows-checkout>\firmware\
-```
-
-`PICO_REBUILD_FIRMWARE` defaults to **OFF** on Windows. The sim target only checks that those files exist.
+`firmware/hello.hex` and `firmware/firmware.hex` are **in the git tree** (built on Linux with `riscv64-unknown-elf-gcc`). `PICO_REBUILD_FIRMWARE` defaults to **OFF** on Windows; `--target sim` / `ctest` use those files. Do not copy by hand.
 
 Optional rebuild on Windows (needs MSYS2 `make` **and** RISC-V GCC **and** `bash`, because the original Makefile sets `SHELL = bash`):
 
@@ -62,7 +55,7 @@ Optional rebuild on Windows (needs MSYS2 `make` **and** RISC-V GCC **and** `bash
 cmake -S cmake-system -B build-system -G "Visual Studio 17 2022" -DPICO_REBUILD_FIRMWARE=ON
 ```
 
-CMake searches `C:\msys64\usr\bin\make.exe` and `mingw32-make` under MSYS2 prefixes even when they are not on PATH. Pass `-DPICO_GNU_MAKE=...` to override. This is **not** the PC2023 default; copying hex is.
+CMake searches `C:\msys64\usr\bin\make.exe` and `mingw32-make` under MSYS2 prefixes even when they are not on PATH. Pass `-DPICO_GNU_MAKE=...` to override. This is **not** the PC2023 default; committed hex is.
 
 ## cmake-system (no Conan)
 
@@ -106,4 +99,4 @@ powershell -File .\build_sim.ps1
 - Do not change the original Makefile or rewrite `picorv32.v` / `testbench.v`.
 - Do not install GNU make only to satisfy configure — it is not required for Verilator cmake.
 
-PC2023 re-proof of `build_sim.ps1` (MSVC + withlimon PE + copied hex) is a worker follow-up. Linux evidence: [`PASS_EVIDENCE.md`](PASS_EVIDENCE.md).
+PC2023: configure + Verilator already OK on this branch; `--target sim` needs the committed hex in this push. Re-run `powershell -File .\build_sim.ps1`. Linux evidence: [`PASS_EVIDENCE.md`](PASS_EVIDENCE.md).

@@ -10,7 +10,7 @@ Recorded **2026-11-02** on this Cloud Agent Linux VM (`cursor`, Ubuntu, x86_64).
 | RISC-V GCC | `riscv64-unknown-elf-gcc` 13.2.0 |
 | Conan | not used in this tree |
 
-Windows MSVC (withlimon `verilator_bin.exe`, Visual Studio generator) is **code-ready** — [`WINDOWS.md`](WINDOWS.md). GNU make is no longer a configure-time hard dependency (`PICO_REBUILD_FIRMWARE` defaults OFF on WIN32; CMake also searches `C:\msys64\usr\bin\make.exe`). PC2023 still needs: copy `firmware/*.hex` from Linux (or RISC-V GCC + bash + make), then `powershell -File .\build_sim.ps1`.
+Windows MSVC (withlimon `verilator_bin.exe`, Visual Studio generator): configure + Verilator already OK on PC2023. `firmware/hello.hex` and `firmware/firmware.hex` are **committed prebuilts** so `--target sim` works with `PICO_REBUILD_FIRMWARE=OFF` (no copy step). [`WINDOWS.md`](WINDOWS.md).
 
 ## Make still green
 
@@ -65,7 +65,7 @@ verilator_exit=0 tests_passed=1 cycles=35845
 
 ## Prebuilt-hex path (Windows MSVC default)
 
-After hex exists, configure without Makefile rebuild (same as WIN32 default):
+Committed `firmware/*.hex`; configure without Makefile rebuild (same as WIN32 default):
 
 ```bash
 cmake -S cmake-system -B build-system-nomake -DCMAKE_BUILD_TYPE=Release -DPICO_REBUILD_FIRMWARE=OFF
