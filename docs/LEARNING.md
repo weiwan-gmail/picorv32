@@ -44,6 +44,14 @@ make test_verilator
 # expect: hello world, many "OK" lines, ALL TESTS PASSED., verilator_exit=0
 ```
 
+Optional CMake dual-tree (same TB / hex; Makefile still works): [CMAKE.md](../CMAKE.md).
+
+```bash
+cmake -S cmake-system -B build-system -DCMAKE_BUILD_TYPE=Release
+cmake --build build-system --target sim
+ctest --test-dir build-system --output-on-failure
+```
+
 No RISC-V GCC at all (hardcoded 6 instructions, Icarus only):
 
 ```bash

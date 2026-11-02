@@ -1,0 +1,4 @@
+sources:
+  "5.052":
+    url: "https://github.com/withlimon/verilator-windows/releases/download/v5.052/verilator-windows-windows_amd64-5.052.tar.gz"
+    sha256: "62b10199ad2e0ab951b362fe1c5c02264670961b532a108652e1080c90f42cf9"
