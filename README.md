@@ -37,6 +37,7 @@ PicoRV32 is free and open hardware licensed under the [ISC license](https://en.w
 - [Building a pure RV32I Toolchain](#building-a-pure-rv32i-toolchain)
 - [Linking binaries with newlib for PicoRV32](#linking-binaries-with-newlib-for-picorv32)
 - [Evaluation: Timing and Utilization on Xilinx 7-Series FPGAs](#evaluation-timing-and-utilization-on-xilinx-7-series-fpgas)
+- Learning / Verilator (this fork): [docs/TUTORIAL_zh.md](docs/TUTORIAL_zh.md), [docs/LEARNING.md](docs/LEARNING.md)
 
 
 Features and Typical Applications
@@ -124,6 +125,20 @@ where the RISC-V compiler toolchain is not available.
 (the latest release at the time of writing) has a few bugs that prevent the
 test bench from running. Upgrade to the latest github master of Icarus Verilog
 to run the test bench.*
+
+This fork also documents a **Verilator** path that loads the same C firmware
+hex. On Ubuntu/Debian:
+
+```bash
+sudo apt-get install -y iverilog verilator gcc-riscv64-unknown-elf python3 build-essential
+make test_verilator_hello    # C hello world → ALL TESTS PASSED.
+make test_verilator          # full firmware suite (ISA + C)
+```
+
+`TOOLCHAIN_PREFIX` is auto-detected (`riscv64-unknown-elf-` on PATH, or the
+historic `/opt/riscv32i/...` layout). Walkthrough (Chinese primary):
+[docs/TUTORIAL_zh.md](docs/TUTORIAL_zh.md). English:
+[docs/TUTORIAL.md](docs/TUTORIAL.md). Commands: [docs/LEARNING.md](docs/LEARNING.md).
 
 #### firmware/
 

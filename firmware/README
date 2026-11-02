@@ -1,2 +1,13 @@
 A simple test firmware. This code is in the public domain. Simply copy whatever
 you can use.
+
+Two images are built from this directory:
+
+- `firmware.hex` — full suite (`start.S` + `hello.c` + sieve/mul/stats + `tests/*.S`).
+  Used by `make test` / `make test_verilator`.
+- `hello.hex` — `start.S` compiled with `-DHELLO_ONLY` plus `hello.c` / `print.c` /
+  `irq.c`. Prints `hello world`, writes the pass magic at `0x20000000`, then
+  `ebreak`. Used by `make test_hello` / `make test_verilator_hello`.
+
+`print.c` writes bytes to `0x10000000` (testbench UART). The pass store is
+`0x20000000 <- 123456789` (see `start.S` and `testbench.v`).

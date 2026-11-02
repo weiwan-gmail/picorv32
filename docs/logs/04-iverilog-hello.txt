@@ -1,0 +1,21 @@
+hello world
+DONE
+
+------------------------------------------------------------
+EBREAK instruction at 0x00000502
+pc  00000505    x8  00000000    x16 00000000    x24 00000000
+x1  000004C6    x9  00000000    x17 00000000    x25 00000000
+x2  00020000    x10 20000000    x18 00000000    x26 00000000
+x3  DEADBEEF    x11 075BCD15    x19 00000000    x27 00000000
+x4  DEADBEEF    x12 0000004F    x20 00000000    x28 00000000
+x5  00000000    x13 0000004E    x21 00000000    x29 00000000
+x6  00000000    x14 00000045    x22 00000000    x30 00000000
+x7  00000000    x15 0000000A    x23 00000000    x31 00000000
+------------------------------------------------------------
+Number of fast external IRQs counted: 1
+Number of slow external IRQs counted: 0
+Number of timer IRQs counted: 0
+TRAP after 35824 clock cycles
+ALL TESTS PASSED.
+testbench.v:266: $finish called at 359340000 (1ps)
+exit_code=0
