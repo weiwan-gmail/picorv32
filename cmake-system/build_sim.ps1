@@ -6,7 +6,9 @@
 #   .\build_sim.ps1
 #
 # Conan is NOT used here (see ../cmake-conan/build_sim.ps1).
-# Firmware hex still comes from the repo Makefile (needs RISC-V GCC).
+# Firmware hex: committed firmware/*.hex (PICO_REBUILD_FIRMWARE=OFF default
+# on Windows). Optional rebuild: MSYS2 make + RISC-V GCC
+# (-DPICO_REBUILD_FIRMWARE=ON). GNU make is NOT required for Verilator cmake.
 
 #Requires -Version 5.1
 [CmdletBinding()]
@@ -26,6 +28,29 @@ function Test-MzPe([string]$Path) {
     try {
         return ($fs.ReadByte() -eq 0x4D -and $fs.ReadByte() -eq 0x5A)
     } finally { $fs.Close() }
+}
+
+function Find-GnuMake {
+    $cands = New-Object System.Collections.Generic.List[string]
+    $cands.Add("C:\msys64\usr\bin\make.exe")
+    $cands.Add("C:\msys64\mingw64\bin\mingw32-make.exe")
+    $cands.Add("C:\msys64\ucrt64\bin\mingw32-make.exe")
+    $cands.Add("D:\msys64\usr\bin\make.exe")
+    $cands.Add("D:\msys64\mingw64\bin\mingw32-make.exe")
+    if ($env:MSYS2_ROOT) {
+        $cands.Add((Join-Path $env:MSYS2_ROOT "usr\bin\make.exe"))
+        $cands.Add((Join-Path $env:MSYS2_ROOT "mingw64\bin\mingw32-make.exe"))
+    }
+    foreach ($c in $cands) {
+        if ($c -and (Test-Path -LiteralPath $c)) {
+            return (Resolve-Path -LiteralPath $c).Path
+        }
+    }
+    foreach ($name in @("make.exe", "gmake.exe", "mingw32-make.exe")) {
+        $cmd = Get-Command $name -ErrorAction SilentlyContinue
+        if ($cmd) { return $cmd.Source }
+    }
+    return $null
 }
 
 function Find-VerilatorBin {
@@ -70,12 +95,32 @@ if ($pe) {
     Write-Host "  Do NOT invoke extensionless Perl ``verilator``."
 }
 
+$make = Find-GnuMake
+if ($make) {
+    Write-Host "GNU make (optional firmware rebuild) = $make"
+    $env:PATH = "$(Split-Path -Parent $make);$env:PATH"
+} else {
+    Write-Host "GNU make not on PATH; Verilator cmake path does not need it."
+    Write-Host "  Firmware: using committed firmware/*.hex (PICO_REBUILD_FIRMWARE=OFF)."
+}
+
+$repoRoot = Split-Path -Parent $Here
+foreach ($hexName in @("hello.hex", "firmware.hex")) {
+    $hexPath = Join-Path $repoRoot "firmware\$hexName"
+    if (-not (Test-Path -LiteralPath $hexPath)) {
+        Write-Host "WARNING: missing $hexPath (copy from a Linux build for ctest)."
+    }
+}
+
 $buildPath = if ([System.IO.Path]::IsPathRooted($BuildDir)) { $BuildDir } else { Join-Path $Here $BuildDir }
 
 $cmakeArgs = @("-S", $Here, "-B", $buildPath)
 if ($Generator) { $cmakeArgs += @("-G", $Generator) }
 if ($Generator -notmatch "Visual Studio") {
     $cmakeArgs += "-DCMAKE_BUILD_TYPE=$Config"
+}
+if ($make) {
+    $cmakeArgs += "-DPICO_GNU_MAKE=$($make -replace '\\','/')"
 }
 
 Write-Host "cmake $($cmakeArgs -join ' ')"

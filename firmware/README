@@ -9,5 +9,10 @@ Two images are built from this directory:
   `irq.c`. Prints `hello world`, writes the pass magic at `0x20000000`, then
   `ebreak`. Used by `make test_hello` / `make test_verilator_hello`.
 
+Both `.hex` files are **committed prebuilts** (Linux `riscv64-unknown-elf-gcc` +
+`make firmware/hello.hex firmware/firmware.hex`) so Windows MSVC cmake-system
+can run with `PICO_REBUILD_FIRMWARE=OFF` and no RISC-V GCC. Rebuild on Linux
+with the Makefile when firmware sources change.
+
 `print.c` writes bytes to `0x10000000` (testbench UART). The pass store is
 `0x20000000 <- 123456789` (see `start.S` and `testbench.v`).
