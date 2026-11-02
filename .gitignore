@@ -42,3 +42,8 @@
 /synth.log
 /synth.v
 .*.swp
+/build-system/
+/build-conan/
+CMakeUserPresets.json
+cmake-system/build/
+cmake-conan/build/

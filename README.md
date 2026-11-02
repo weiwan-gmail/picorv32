@@ -38,6 +38,7 @@ PicoRV32 is free and open hardware licensed under the [ISC license](https://en.w
 - [Linking binaries with newlib for PicoRV32](#linking-binaries-with-newlib-for-picorv32)
 - [Evaluation: Timing and Utilization on Xilinx 7-Series FPGAs](#evaluation-timing-and-utilization-on-xilinx-7-series-fpgas)
 - Learning / Verilator (this fork): [docs/TUTORIAL_zh.md](docs/TUTORIAL_zh.md), [docs/LEARNING.md](docs/LEARNING.md)
+- CMake dual-tree (Make unchanged): [CMAKE.md](CMAKE.md)
 
 
 Features and Typical Applications
@@ -139,6 +140,8 @@ make test_verilator          # full firmware suite (ISA + C)
 historic `/opt/riscv32i/...` layout). Walkthrough (Chinese primary):
 [docs/TUTORIAL_zh.md](docs/TUTORIAL_zh.md). English:
 [docs/TUTORIAL.md](docs/TUTORIAL.md). Commands: [docs/LEARNING.md](docs/LEARNING.md).
+Optional CMake dual-tree (`cmake-system/` + `cmake-conan/`, same TB sources):
+[CMAKE.md](CMAKE.md). The Makefile is unchanged.
 
 #### firmware/
 

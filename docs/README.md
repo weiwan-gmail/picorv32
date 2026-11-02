@@ -4,3 +4,4 @@
 - **[TUTORIAL.md](TUTORIAL.md)** — English summary
 - **[LEARNING.md](LEARNING.md)** — command index and next cores
 - **[logs/](logs/)** — real PASS transcripts
+- **[CMAKE.md](../CMAKE.md)** — optional cmake-system / cmake-conan dual-tree (Makefile unchanged)
